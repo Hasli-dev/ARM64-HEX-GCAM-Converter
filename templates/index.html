@@ -10,7 +10,7 @@
     <div class="container">
         <div class="header">
             <h1 data-lang-key="main_title">ARM64 Google Camera Converter</h1>
-            <p style="text-align: center; margin: 0; color: var(--footer-text-color);" data-lang-key="subtitle">by Hasli</p>
+
         </div>
         <div class="top-controls">
             <div class="lang-switch-wrapper">
@@ -77,6 +77,7 @@
         <div class="buttons">
             <button id="assemble" data-lang-key="button_assemble">Assemble</button>
             <button id="disassemble" data-lang-key="button_disassemble">Disassemble</button>
+                <button id="clear" data-lang-key="button_clear" style="background-color: #f44336; color: white;">Clear</button>
         </div>
         <div class="description">
             <p><strong data-lang-key="desc_header">Как это работает:</strong></p>
@@ -86,6 +87,7 @@
                 <li data-lang-key="desc_3"><strong>'Умные' шаблоны:</strong> Инструкции типа `FSQRT`, `FDIV` и т.д. будут автоматически заменены на `FMOV` для установки фиксированного значения.</li>
                 <li data-lang-key="desc_4"><strong>HEX Output:</strong> Формирует список полученных HEX-значений.</li>
                 <li data-lang-key="desc_5"><strong>XML-список:</strong> Генерирует готовый `string-array` для вставки в `arrays.xml`.</li>
+                <li data-lang-key="desc_6"></li>
             </ul>
         </div>
     </div>
@@ -121,13 +123,16 @@
                 xml_label: "XML List:",
                 xml_placeholder: "XML will appear here...",
                 button_assemble: "Assemble",
-                button_disassemble: "Disassemble",
+                button_disassemble: "Дизассемблировать",
+                button_clear: "Очистить",
+                button_clear: "Clear",
                 desc_header: "How it works:",
                 desc_1: "<strong>Simple mode:</strong> Enter an instruction and click 'Assemble' to get the HEX code.",
                 desc_2: "<strong>Advanced mode:</strong> Enable 'Expand values', use `{}` in the instruction to substitute values from the range.",
                 desc_3: "<strong>'Smart' templates:</strong> Instructions like `FSQRT`, `FDIV`, etc., will be automatically replaced with `FMOV` to set a fixed value.",
                 desc_4: "<strong>HEX Output:</strong> A list of the generated HEX values.",
                 desc_5: "<strong>XML List:</strong> Generates a ready-to-use `string-array` for `arrays.xml`.",
+                desc_6: "<strong>Note:</strong> In 'Expand values' mode, if a generated value is not valid for the given instruction, it will be automatically skipped and will not appear in the final output.",
                 status_processing: "Processing...",
                 status_generating: "Generating...",
                 error_unknown: "Unknown error",
@@ -167,6 +172,7 @@
                 desc_3: "<strong>'Умные' шаблоны:</strong> Инструкции типа `FSQRT`, `FDIV` и т.д. будут автоматически заменены на `FMOV` для установки фиксированного значения.",
                 desc_4: "<strong>HEX Output:</strong> Формирует список полученных HEX-значений.",
                 desc_5: "<strong>XML-список:</strong> Генерирует готовый `string-array` для вставки в `arrays.xml`.",
+                desc_6: "<strong>Примечание:</strong> В режиме 'Расширить значения', если сгенерированное значение не подходит для указанной инструкции, оно будет автоматически пропущено и не появится в итоговом результате.",
                 status_processing: "Выполняется...",
                 status_generating: "Генерация...",
                 error_unknown: "Неизвестная ошибка",
@@ -233,7 +239,7 @@
         expandCheckbox.addEventListener('change', () => {
             const isChecked = expandCheckbox.checked;
             document.getElementById('expand-options').style.display = isChecked ? 'flex' : 'none';
-            document.getElementById('disassemble').disabled = isChecked;
+
         });
 
         // --- Client-Side Conversion Logic ---
@@ -374,6 +380,12 @@
 
         document.getElementById('assemble').addEventListener('click', () => convert('assemble'));
         document.getElementById('disassemble').addEventListener('click', () => convert('disassemble'));
+
+        document.getElementById('clear').addEventListener('click', () => {
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('values-xml').value = '';
+        });
 
         // Template switcher
         const templateSelect = document.getElementById('template-select');

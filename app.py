@@ -1,12 +1,12 @@
 from flask import Flask, render_template, request, jsonify
 import subprocess
-import os
 import sys
+import os
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ARM_CONVERTER_PATH = os.path.join(BASE_DIR, 'arm_converter.py')
+# Путь к скрипту arm_converter.py
+ARM_CONVERTER_PATH = os.path.join(os.path.dirname(__file__), 'arm_converter.py')
 
 @app.route('/')
 def index():
@@ -18,9 +18,11 @@ def convert():
     code = data.get('code', '')
     arch = data.get('arch', 'arm64')
     mode = data.get('mode', 'arm')
+    action = data.get('action', 'assemble') # Получаем действие
 
     try:
-        command = [sys.executable, ARM_CONVERTER_PATH, code, '--arch', arch, '--mode', mode]
+        # Передаем действие в скрипт
+        command = [sys.executable, ARM_CONVERTER_PATH, code, '--arch', arch, '--mode', mode, '--action', action]
         
         startupinfo = None
         if sys.platform == "win32":
@@ -29,21 +31,17 @@ def convert():
             startupinfo.wShowWindow = subprocess.SW_HIDE
 
         result = subprocess.run(
-            command, 
-            capture_output=True, 
-            text=True, 
-            check=False, 
-            encoding='utf-8', 
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
             startupinfo=startupinfo
         )
-
-        if result.returncode != 0:
-            return jsonify({"error": result.stderr.strip() if result.stderr else "Unknown script error"}), 400
-
-        return jsonify({"output": result.stdout.strip()})
-        
+        return jsonify({'output': result.stdout.strip()})
+    except subprocess.CalledProcessError as e:
+        return jsonify({'error': e.stderr.strip()})
     except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+    app.run(host='0.0.0.0', port=8000, debug=True)
