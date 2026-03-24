@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-lang-key="page_title">Google Camera ARM/ARM64 Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 data-lang-key="main_title">ARM64 Google Camera Converter</h1>
+            <p style="text-align: center; margin: 0; color: var(--footer-text-color);" data-lang-key="subtitle">by Hasli</p>
+        </div>
+        <div class="top-controls">
+            <div class="lang-switch-wrapper">
+                <a href="#" class="lang-switch" data-lang="en">EN</a>
+                <span style="color: var(--footer-text-color);">|</span>
+                <a href="#" class="lang-switch" data-lang="ru">RU</a>
+            </div>
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="checkbox"><input type="checkbox" id="checkbox" /><div class="slider"></div></label>
+            </div>
+        </div>
+        <div class="options">
+            <div class="checkbox-container"><input type="checkbox" id="expand-checkbox" style="width: 20px; height: 20px;"><label for="expand-checkbox" data-lang-key="expand_values">Расширить значения</label></div>
+        </div>
+        <div id="expand-options" class="options" style="display: none;">
+            <label data-lang-key="range_label">Диапазон:</label>
+            <input type="text" id="range-start" placeholder="Начало" data-lang-key-placeholder="range_start_placeholder">
+            <input type="text" id="range-end" placeholder="Конец" data-lang-key-placeholder="range_end_placeholder">
+            <input type="text" id="breakpoint" placeholder="Точка перехода (опц.)" data-lang-key-placeholder="range_breakpoint_placeholder">
+            <input type="text" id="step1" placeholder="Шаг (до точки)" data-lang-key-placeholder="range_step1_placeholder">
+            <input type="text" id="step2" placeholder="Шаг (после точки)" data-lang-key-placeholder="range_step2_placeholder">
+            <input type="text" id="xml-name" placeholder="Название" data-lang-key-placeholder="range_xml_name_placeholder">
+        </div>
+        <div class="io-container">
+            <div class="io-box full-width">
+                <label for="template-select" data-lang-key="templates_label">Шаблоны:</label>
+                <select id="template-select" style="margin-bottom: 15px;">
+                    <option value="" data-lang-key="templates_default">-- Выберите шаблон --</option>
+                    <optgroup label="Целочисленные" data-lang-key="templates_group_int">
+                        <option value="MOV W0, #{}">MOV W0, #{}</option>
+                        <option value="ADD W0, W1, #{}">ADD W0, W1, #{}</option>
+                        <option value="CMP W0, #{}">CMP W0, #{}</option>
+                    </optgroup>
+                    <optgroup label="С плавающей точкой" data-lang-key="templates_group_float">
+                        <option value="FMOV S0, #{}">FMOV S0, #{}</option>
+                    </optgroup>
+                    <optgroup label="'Умные' шаблоны (подмена на FMOV)" data-lang-key="templates_group_smart">
+                        <option value="FSQRT S0, S1, #{}">FSQRT S0, S1, #{}</option>
+                        <option value="FDIV S0, S1, #{}">FDIV S0, S1, #{}</option>
+                        <option value="FMUL S0, S1, #{}">FMUL S0, S1, #{}</option>
+                        <option value="FADD S0, S1, #{}">FADD S0, S1, #{}</option>
+                        <option value="FSUB S0, S1, #{}">FSUB S0, S1, #{}</option>
+                    </optgroup>
+                     <optgroup label="Работа с памятью" data-lang-key="templates_group_mem">
+                        <option value="LDR W0, [X1, #{}]">LDR W0, [X1, #{}]</option>
+                        <option value="LDR S0, [X1, #{}]">LDR S0, [X1, #{}]</option>
+                    </optgroup>
+                    <option value="CUSTOM" data-lang-key="templates_custom">Другой...</option>
+                </select>
+            </div>
+            <div class="io-box full-width">
+                <label for="input" data-lang-key="input_label">Input (используйте {} для подстановки):</label>
+                <textarea id="input" placeholder="Например: MOV W0, #{}" data-lang-key-placeholder="input_placeholder" style="height: 150px;"></textarea>
+            </div>
+            <div class="io-box">
+                <label for="output" data-lang-key="output_label">HEX Output:</label>
+                <textarea id="output" readonly placeholder="Здесь появится результат..." data-lang-key-placeholder="output_placeholder"></textarea>
+            </div>
+            <div class="io-box">
+                <label for="values-xml" data-lang-key="xml_label">XML-список:</label>
+                <textarea id="values-xml" readonly placeholder="Здесь появится XML..." data-lang-key-placeholder="xml_placeholder"></textarea>
+            </div>
+        </div>
+        <div class="buttons">
+            <button id="assemble" data-lang-key="button_assemble">Assemble</button>
+            <button id="disassemble" data-lang-key="button_disassemble">Disassemble</button>
+        </div>
+        <div class="description">
+            <p><strong data-lang-key="desc_header">Как это работает:</strong></p>
+            <ul>
+                <li data-lang-key="desc_1"><strong>Простой режим:</strong> Введите инструкцию и нажмите 'Assemble' для получения HEX-кода.</li>
+                <li data-lang-key="desc_2"><strong>Расширенный режим:</strong> Активируйте 'Расширить значения', используйте `{}` в инструкции для подстановки значений из диапазона.</li>
+                <li data-lang-key="desc_3"><strong>'Умные' шаблоны:</strong> Инструкции типа `FSQRT`, `FDIV` и т.д. будут автоматически заменены на `FMOV` для установки фиксированного значения.</li>
+                <li data-lang-key="desc_4"><strong>HEX Output:</strong> Формирует список полученных HEX-значений.</li>
+                <li data-lang-key="desc_5"><strong>XML-список:</strong> Генерирует готовый `string-array` для вставки в `arrays.xml`.</li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer">Made by Hasli</div>
+    <div id="spinner-overlay" class="overlay">
+        <div class="spinner"></div>
+    </div>
+    <script>
+        const translations = {
+            en: {
+                page_title: "Google Camera ARM/ARM64 Converter",
+                main_title: "ARM64 Google Camera Converter",
+                subtitle: "by Hasli",
+                expand_values: "Expand values",
+                range_label: "Range:",
+                range_start_placeholder: "Start",
+                range_end_placeholder: "End",
+                range_breakpoint_placeholder: "Breakpoint (opt.)",
+                range_step1_placeholder: "Step (before pt.)",
+                range_step2_placeholder: "Step (after pt.)",
+                range_xml_name_placeholder: "Name",
+                templates_label: "Templates:",
+                templates_default: "-- Select a template --",
+                templates_group_int: "Integer",
+                templates_group_float: "Floating-point",
+                templates_group_smart: "'Smart' templates (FMOV replacement)",
+                templates_group_mem: "Memory Access",
+                templates_custom: "Custom...",
+                input_label: "Input (use {} as placeholder):",
+                input_placeholder: "e.g., MOV W0, #{}",
+                output_label: "HEX Output:",
+                output_placeholder: "Result will appear here...",
+                xml_label: "XML List:",
+                xml_placeholder: "XML will appear here...",
+                button_assemble: "Assemble",
+                button_disassemble: "Disassemble",
+                desc_header: "How it works:",
+                desc_1: "<strong>Simple mode:</strong> Enter an instruction and click 'Assemble' to get the HEX code.",
+                desc_2: "<strong>Advanced mode:</strong> Enable 'Expand values', use `{}` in the instruction to substitute values from the range.",
+                desc_3: "<strong>'Smart' templates:</strong> Instructions like `FSQRT`, `FDIV`, etc., will be automatically replaced with `FMOV` to set a fixed value.",
+                desc_4: "<strong>HEX Output:</strong> A list of the generated HEX values.",
+                desc_5: "<strong>XML List:</strong> Generates a ready-to-use `string-array` for `arrays.xml`.",
+                status_processing: "Processing...",
+                status_generating: "Generating...",
+                error_unknown: "Unknown error",
+                error_range_fields: "Error: 'Start' and 'End' fields must be numbers.",
+                error_network: "Network error:"
+            },
+            ru: {
+                page_title: "Google Camera ARM/ARM64 Конвертер",
+                main_title: "ARM64 Google Camera Converter",
+                subtitle: "от Hasli",
+                expand_values: "Расширить значения",
+                range_label: "Диапазон:",
+                range_start_placeholder: "Начало",
+                range_end_placeholder: "Конец",
+                range_breakpoint_placeholder: "Точка перехода (опц.)",
+                range_step1_placeholder: "Шаг (до точки)",
+                range_step2_placeholder: "Шаг (после точки)",
+                range_xml_name_placeholder: "Название",
+                templates_label: "Шаблоны:",
+                templates_default: "-- Выберите шаблон --",
+                templates_group_int: "Целочисленные",
+                templates_group_float: "С плавающей точкой",
+                templates_group_smart: "'Умные' шаблоны (подмена на FMOV)",
+                templates_group_mem: "Работа с памятью",
+                templates_custom: "Другой...",
+                input_label: "Input (используйте {} для подстановки):",
+                input_placeholder: "Например: MOV W0, #{}",
+                output_label: "HEX Output:",
+                output_placeholder: "Здесь появится результат...",
+                xml_label: "XML-список:",
+                xml_placeholder: "Здесь появится XML...",
+                button_assemble: "Assemble",
+                button_disassemble: "Disassemble",
+                desc_header: "Как это работает:",
+                desc_1: "<strong>Простой режим:</strong> Введите инструкцию и нажмите 'Assemble' для получения HEX-кода.",
+                desc_2: "<strong>Расширенный режим:</strong> Активируйте 'Расширить значения', используйте `{}` в инструкции для подстановки значений из диапазона.",
+                desc_3: "<strong>'Умные' шаблоны:</strong> Инструкции типа `FSQRT`, `FDIV` и т.д. будут автоматически заменены на `FMOV` для установки фиксированного значения.",
+                desc_4: "<strong>HEX Output:</strong> Формирует список полученных HEX-значений.",
+                desc_5: "<strong>XML-список:</strong> Генерирует готовый `string-array` для вставки в `arrays.xml`.",
+                status_processing: "Выполняется...",
+                status_generating: "Генерация...",
+                error_unknown: "Неизвестная ошибка",
+                error_range_fields: "Ошибка: Поля \"Начало\" и \"Конец\" диапазона должны быть числами.",
+                error_network: "Сетевая ошибка:"
+            }
+        };
+
+        let currentLang = 'en';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.querySelectorAll('[data-lang-key]:not(optgroup)').forEach(el => {
+                const key = el.dataset.langKey;
+                if (translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => {
+                const key = el.dataset.langKeyPlaceholder;
+                if (translations[lang][key]) {
+                    el.placeholder = translations[lang][key];
+                }
+            });
+            document.querySelectorAll('optgroup[data-lang-key]').forEach(el => {
+                 const key = el.dataset.langKey;
+                if (translations[lang][key]) {
+                    el.label = translations[lang][key];
+                }
+            });
+
+            document.title = translations[lang].page_title;
+            localStorage.setItem('language', lang);
+
+            document.querySelectorAll('.lang-switch').forEach(el => {
+                el.classList.remove('active');
+                if (el.dataset.lang === lang) {
+                    el.classList.add('active');
+                }
+            });
+        }
+
+        // --- THEME --- 
+        const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+        function applyTheme(theme) {
+            if (theme === 'dark-mode') {
+                document.body.classList.add('dark-mode');
+                toggleSwitch.checked = true;
+            } else {
+                document.body.classList.remove('dark-mode');
+                toggleSwitch.checked = false;
+            }
+        }
+        const initialTheme = localStorage.getItem('theme') || 'dark-mode';
+        applyTheme(initialTheme);
+        toggleSwitch.addEventListener('change', (e) => {
+            const newTheme = e.target.checked ? 'dark-mode' : 'light-mode';
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        }, false);
+
+        // --- UI Logic ---
+        const expandCheckbox = document.getElementById('expand-checkbox');
+        expandCheckbox.addEventListener('change', () => {
+            const isChecked = expandCheckbox.checked;
+            document.getElementById('expand-options').style.display = isChecked ? 'flex' : 'none';
+            document.getElementById('disassemble').disabled = isChecked;
+        });
+
+        // --- Client-Side Conversion Logic ---
+        async function convert(action) {
+            const spinnerOverlay = document.getElementById('spinner-overlay');
+            const assembleButton = document.getElementById('assemble');
+            
+            spinnerOverlay.style.display = 'block';
+            assembleButton.disabled = true;
+
+            try {
+                const outputArea = document.getElementById('output');
+                const xmlArea = document.getElementById('values-xml');
+                outputArea.value = translations[currentLang].status_processing;
+                xmlArea.value = '';
+
+                const expand = document.getElementById('expand-checkbox').checked;
+                const codeTemplate = document.getElementById('input').value;
+                const arch = 'arm64';
+                const mode = 'arm';
+
+                if (!expand || action === 'disassemble') {
+                    const result = await singleConvert(codeTemplate, arch, mode, action);
+                    outputArea.value = result.output || result.error || translations[currentLang].error_unknown;
+                    return;
+                }
+
+                let codeToProcess = codeTemplate;
+                const upperCaseCode = codeTemplate.trim().toUpperCase();
+                if (upperCaseCode.startsWith('FSQRT') || upperCaseCode.startsWith('FDIV') || upperCaseCode.startsWith('FMUL') || upperCaseCode.startsWith('FADD') || upperCaseCode.startsWith('FSUB')) {
+                    const parts = codeTemplate.replace(/,/g, ' ').split(/\s+/);
+                    if (parts.length >= 2) {
+                        const destRegister = parts[1];
+                        codeToProcess = `FMOV ${destRegister}, #{}`;
+                    }
+                }
+
+                const start = parseFloat(document.getElementById('range-start').value);
+                const end = parseFloat(document.getElementById('range-end').value);
+                const breakpoint = parseFloat(document.getElementById('breakpoint').value);
+                const step1_input = parseFloat(document.getElementById('step1').value);
+                const step2_input = parseFloat(document.getElementById('step2').value);
+
+                const xmlName = document.getElementById('xml-name').value || 'DefaultName';
+
+                if (isNaN(start) || isNaN(end)) {
+                    outputArea.value = translations[currentLang].error_range_fields;
+                    return;
+                }
+
+                xmlArea.value = translations[currentLang].status_generating;
+                let rawHexOutput = [];
+                let entValues = [];
+                let valValues = [];
+
+                const processValue = async (i) => {
+                    const inst_val = (i % 1 === 0) ? i.toString() : i.toFixed(3).replace(/\.?0+$/, '');
+                    const xml_val = i.toFixed(3);
+                    const instruction = codeToProcess.replace('{}', inst_val);
+                    const result = await singleConvert(instruction, arch, mode, 'assemble');
+                    if (!result.error) {
+                        entValues.push(xml_val);
+                        rawHexOutput.push(result.output);
+                        valValues.push(result.output);
+                    }
+                };
+
+                // Multi-step logic
+                if (!isNaN(breakpoint) && breakpoint > start && breakpoint < end) {
+                    // Stage 1: from start up to (but not including) breakpoint
+                    const step1 = step1_input || 1.0;
+                    for (let i = start; i < breakpoint; i += step1) {
+                        await processValue(i);
+                    }
+
+                    // Stage 2: from breakpoint to end
+                    const step2 = step2_input || 1.0;
+                    for (let i = breakpoint; i <= end + 1e-9; i += step2) {
+                        await processValue(i);
+                    }
+                } else {
+                    // Single step logic
+                    const step1 = step1_input || 1.0;
+                    for (let i = start; i <= end + 1e-9; i += step1) {
+                        await processValue(i);
+                    }
+                }
+
+                let entXml = `<string-array name="lib_${xmlName}_ent">`;
+                entXml += `\n    <item>Default</item>`;
+                entValues.forEach(v => { entXml += `\n    <item>${v}</item>`; });
+                entXml += '\n</string-array>';
+
+                let valXml = `<string-array name="lib_${xmlName}_val">`;
+                valXml += `\n    <item>0</item>`;
+                valValues.forEach(v => { valXml += `\n    <item>${v}</item>`; });
+                valXml += '\n</string-array>'
+
+                outputArea.value = rawHexOutput.join('\n');
+                xmlArea.value = entXml + '\n\n' + valXml;
+
+            } finally {
+                spinnerOverlay.style.display = 'none';
+                assembleButton.disabled = false;
+            }
+        }
+
+        async function singleConvert(code, arch, mode, action) {
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, arch, mode, action })
+                });
+                const data = await response.json();
+                if(data.error) {
+                     // A bit of a hack to translate backend errors
+                    if (data.error.includes("Failed to assemble")) {
+                        data.error = "Error: Failed to assemble instruction"; 
+                    } else if (data.error.includes("Invalid operand")) {
+                         data.error = "Error: Invalid operand";
+                    }
+                }
+                return data;
+            } catch (error) {
+                return { error: `${translations[currentLang].error_network} ${error.message}` };
+            }
+        }
+
+        document.getElementById('assemble').addEventListener('click', () => convert('assemble'));
+        document.getElementById('disassemble').addEventListener('click', () => convert('disassemble'));
+
+        // Template switcher
+        const templateSelect = document.getElementById('template-select');
+        const inputAreaForTemplates = document.getElementById('input');
+        templateSelect.addEventListener('change', (e) => {
+            const selectedValue = e.target.value;
+            if (selectedValue === 'CUSTOM') {
+                inputAreaForTemplates.value = '';
+                inputAreaForTemplates.focus();
+            } else if (selectedValue) {
+                inputAreaForTemplates.value = selectedValue;
+            }
+        });
+
+        // --- LANGUAGE --- 
+        document.querySelectorAll('.lang-switch').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                setLanguage(e.target.dataset.lang);
+            });
+        });
+        const initialLang = localStorage.getItem('language') || 'en';
+        setLanguage(initialLang);
+
+    </script>
+</body>
+</html>
