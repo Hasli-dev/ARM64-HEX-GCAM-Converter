@@ -44,4 +44,4 @@ ENV PATH="/opt/venv/bin:$PATH"
 EXPOSE 8000
 # Используем exec-форму CMD для корректной обработки сигналов
 # и ${PORT:-8000} для гибкости на облачных платформах
-CMD ["gunicorn", "--bind", "0.0.0.0:${PORT:-8000}", "app:app"]
+CMD ["/bin/sh", "-c", "exec gunicorn --bind 0.0.0.0:${PORT:-8000} app:app"]
