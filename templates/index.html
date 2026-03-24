@@ -271,11 +271,18 @@
                     }
                 }
 
-                const start = parseFloat(document.getElementById('range-start').value);
-                const end = parseFloat(document.getElementById('range-end').value);
-                const breakpoint = parseFloat(document.getElementById('breakpoint').value);
-                const step1_input = parseFloat(document.getElementById('step1').value);
-                const step2_input = parseFloat(document.getElementById('step2').value);
+                function getNumericValue(id, defaultValue = null) {
+                    const value = document.getElementById(id).value.trim().replace(',', '.');
+                    if (value === '') return defaultValue;
+                    const num = parseFloat(value);
+                    return isNaN(num) ? defaultValue : num;
+                }
+
+                const start = getNumericValue('range-start', 0);
+                const end = getNumericValue('range-end', 0);
+                const breakpoint = getNumericValue('breakpoint');
+                const step1_input = getNumericValue('step1');
+                const step2_input = getNumericValue('step2');
 
                 const xmlName = document.getElementById('xml-name').value || 'DefaultName';
 
@@ -301,22 +308,24 @@
                     }
                 };
 
-                // Multi-step logic
-                if (!isNaN(breakpoint) && breakpoint > start && breakpoint < end) {
+                if (breakpoint !== null && breakpoint > start && breakpoint < end) {
                     // Stage 1: from start up to (but not including) breakpoint
-                    const step1 = step1_input || 1.0;
+                    let step1 = (step1_input !== null) ? step1_input : 1.0;
+                    if (step1 <= 0) step1 = 1.0; // Prevent infinite loops
                     for (let i = start; i < breakpoint; i += step1) {
                         await processValue(i);
                     }
 
                     // Stage 2: from breakpoint to end
-                    const step2 = step2_input || 1.0;
+                    let step2 = (step2_input !== null) ? step2_input : 1.0;
+                    if (step2 <= 0) step2 = 1.0; // Prevent infinite loops
                     for (let i = breakpoint; i <= end + 1e-9; i += step2) {
                         await processValue(i);
                     }
                 } else {
                     // Single step logic
-                    const step1 = step1_input || 1.0;
+                    let step1 = (step1_input !== null) ? step1_input : 1.0;
+                    if (step1 <= 0) step1 = 1.0; // Prevent infinite loops
                     for (let i = start; i <= end + 1e-9; i += step1) {
                         await processValue(i);
                     }

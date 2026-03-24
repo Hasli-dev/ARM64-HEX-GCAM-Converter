@@ -21,11 +21,21 @@ def convert():
 
     try:
         command = [sys.executable, ARM_CONVERTER_PATH, code, '--arch', arch, '--mode', mode]
-        si = subprocess.STARTUPINFO()
-        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        si.wShowWindow = subprocess.SW_HIDE
         
-        result = subprocess.run(command, capture_output=True, text=True, check=False, encoding='utf-8', startupinfo=si)
+        startupinfo = None
+        if sys.platform == "win32":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+
+        result = subprocess.run(
+            command, 
+            capture_output=True, 
+            text=True, 
+            check=False, 
+            encoding='utf-8', 
+            startupinfo=startupinfo
+        )
 
         if result.returncode != 0:
             return jsonify({"error": result.stderr.strip() if result.stderr else "Unknown script error"}), 400
