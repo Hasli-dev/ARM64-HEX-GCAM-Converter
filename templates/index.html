@@ -279,10 +279,10 @@
                 // 1. Determine the full block of instructions to process
                 if (action === 'disassemble') {
                     codeToProcess = codeTemplate;
-                } else if (expand) {
+                } else if (expand && codeTemplate.includes('{}')) {
                     // --- EXPAND MODE ---
                     let template = codeTemplate;
-                    const upperCaseCode = codeTemplate.trim().toUpperCase();
+                    const upperCaseCode = template.trim().toUpperCase();
                     if (upperCaseCode.startsWith('FSQRT') || upperCaseCode.startsWith('FDIV') || upperCaseCode.startsWith('FMUL') || upperCaseCode.startsWith('FADD') || upperCaseCode.startsWith('FSUB')) {
                         const parts = template.replace(/,/g, ' ').split(/\s+/);
                         if (parts.length >= 2) {
@@ -313,8 +313,13 @@
                     const processValue = (i) => {
                         const inst_val = (i % 1 === 0) ? i.toString() : i.toFixed(3).replace(/\.?0+$/, '');
                         const xml_val = i.toFixed(3);
-                        instructions.push(template.replace('{}', inst_val));
-                        entValuesForXml.push(xml_val);
+                        const templateLines = template.split('\n');
+                        templateLines.forEach(line => {
+                            if (line.trim()) {
+                                instructions.push(line.replace('{}', inst_val));
+                                entValuesForXml.push(xml_val);
+                            }
+                        });
                     };
 
                     if (breakpoint !== null && breakpoint > start && breakpoint < end) {
@@ -357,7 +362,7 @@
                             finalHex.push(res.hex);
                             valValues.push(res.hex);
                             
-                            if (expand) {
+                            if (expand && codeTemplate.includes('{}')) {
                                 // In expand mode, we use the pre-calculated float values
                                 entValues.push(entValuesForXml[index]);
                             } else {
