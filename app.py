@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import subprocess
 import sys
 import os
+import json
 
 app = Flask(__name__)
 
@@ -37,7 +38,9 @@ def convert():
             check=True,
             startupinfo=startupinfo
         )
-        return jsonify({'output': result.stdout.strip()})
+        # The script now returns a JSON string directly, so we parse it and return it
+        response_data = json.loads(result.stdout)
+        return jsonify(response_data)
     except subprocess.CalledProcessError as e:
         return jsonify({'error': e.stderr.strip()})
     except Exception as e:

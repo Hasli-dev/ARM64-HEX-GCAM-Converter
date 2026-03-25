@@ -235,6 +235,25 @@
 
         });
 
+        function generateXml(xmlArea, xmlName, entValues, valValues) {
+            if (entValues.length === 0 && valValues.length === 0) {
+                xmlArea.value = ''; // Clear XML area if no valid data
+                return;
+            }
+
+            let entXml = `<string-array name="lib_${xmlName}_ent">`;
+            entXml += `\n    <item>Default</item>`;
+            entValues.forEach(v => { entXml += `\n    <item>${v}</item>`; });
+            entXml += '\n</string-array>';
+
+            let valXml = `<string-array name="lib_${xmlName}_val">`;
+            valXml += `\n    <item>0</item>`;
+            valValues.forEach(v => { valXml += `\n    <item>${v}</item>`; });
+            valXml += '\n</string-array>';
+
+            xmlArea.value = entXml + '\n\n' + valXml;
+        }
+
         // --- Client-Side Conversion Logic ---
         async function convert(action) {
             const spinnerOverlay = document.getElementById('spinner-overlay');
@@ -246,106 +265,147 @@
             try {
                 const outputArea = document.getElementById('output');
                 const xmlArea = document.getElementById('values-xml');
-                outputArea.value = translations[currentLang].status_processing;
-                xmlArea.value = '';
-
-                const expand = document.getElementById('expand-checkbox').checked;
                 const codeTemplate = document.getElementById('input').value;
+                const expand = document.getElementById('expand-checkbox').checked;
                 const arch = 'arm64';
                 const mode = 'arm';
 
-                if (!expand || action === 'disassemble') {
-                    const result = await singleConvert(codeTemplate, arch, mode, action);
-                    outputArea.value = result.output || result.error || translations[currentLang].error_unknown;
-                    return;
-                }
-
-                let codeToProcess = codeTemplate;
-                const upperCaseCode = codeTemplate.trim().toUpperCase();
-                if (upperCaseCode.startsWith('FSQRT') || upperCaseCode.startsWith('FDIV') || upperCaseCode.startsWith('FMUL') || upperCaseCode.startsWith('FADD') || upperCaseCode.startsWith('FSUB')) {
-                    const parts = codeTemplate.replace(/,/g, ' ').split(/\s+/);
-                    if (parts.length >= 2) {
-                        const destRegister = parts[1];
-                        codeToProcess = `FMOV ${destRegister}, #{}`;
-                    }
-                }
-
-                function getNumericValue(id, defaultValue = null) {
-                    const value = document.getElementById(id).value.trim().replace(',', '.');
-                    if (value === '') return defaultValue;
-                    const num = parseFloat(value);
-                    return isNaN(num) ? defaultValue : num;
-                }
-
-                const start = getNumericValue('range-start', 0);
-                const end = getNumericValue('range-end', 0);
-                const breakpoint = getNumericValue('breakpoint');
-                const step1_input = getNumericValue('step1');
-                const step2_input = getNumericValue('step2');
-
-                const xmlName = document.getElementById('xml-name').value || 'DefaultName';
-
-                if (isNaN(start) || isNaN(end)) {
-                    outputArea.value = translations[currentLang].error_range_fields;
-                    return;
-                }
-
+                outputArea.value = translations[currentLang].status_processing;
                 xmlArea.value = translations[currentLang].status_generating;
-                let rawHexOutput = [];
-                let entValues = [];
-                let valValues = [];
+                
+                let codeToProcess = '';
+                let entValuesForXml = [];
 
-                const processValue = async (i) => {
-                    const inst_val = (i % 1 === 0) ? i.toString() : i.toFixed(3).replace(/\.?0+$/, '');
-                    const xml_val = i.toFixed(3);
-                    const instruction = codeToProcess.replace('{}', inst_val);
-                    const result = await singleConvert(instruction, arch, mode, 'assemble');
-                    if (!result.error) {
-                        entValues.push(xml_val);
-                        rawHexOutput.push(result.output);
-                        valValues.push(result.output);
-                    }
-                };
-
-                if (breakpoint !== null && breakpoint > start && breakpoint < end) {
-                    // Stage 1: from start up to (but not including) breakpoint
-                    let step1 = (step1_input !== null) ? step1_input : 1.0;
-                    if (step1 <= 0) step1 = 1.0; // Prevent infinite loops
-                    for (let i = start; i < breakpoint; i += step1) {
-                        await processValue(i);
+                // 1. Determine the full block of instructions to process
+                if (action === 'disassemble') {
+                    codeToProcess = codeTemplate;
+                } else if (expand) {
+                    // --- EXPAND MODE ---
+                    let template = codeTemplate;
+                    const upperCaseCode = codeTemplate.trim().toUpperCase();
+                    if (upperCaseCode.startsWith('FSQRT') || upperCaseCode.startsWith('FDIV') || upperCaseCode.startsWith('FMUL') || upperCaseCode.startsWith('FADD') || upperCaseCode.startsWith('FSUB')) {
+                        const parts = template.replace(/,/g, ' ').split(/\s+/);
+                        if (parts.length >= 2) {
+                            template = `FMOV ${parts[1]}, #{}`;
+                        }
                     }
 
-                    // Stage 2: from breakpoint to end
-                    let step2 = (step2_input !== null) ? step2_input : 1.0;
-                    if (step2 <= 0) step2 = 1.0; // Prevent infinite loops
-                    for (let i = breakpoint; i <= end + 1e-9; i += step2) {
-                        await processValue(i);
+                    function getNumericValue(id, defaultValue = null) {
+                        const value = document.getElementById(id).value.trim().replace(',', '.');
+                        if (value === '') return defaultValue;
+                        const num = parseFloat(value);
+                        return isNaN(num) ? defaultValue : num;
                     }
+
+                    const start = getNumericValue('range-start', 0);
+                    const end = getNumericValue('range-end', 0);
+                    const breakpoint = getNumericValue('breakpoint');
+                    const step1_input = getNumericValue('step1');
+                    const step2_input = getNumericValue('step2');
+
+                    if (isNaN(start) || isNaN(end)) {
+                        outputArea.value = translations[currentLang].error_range_fields;
+                        xmlArea.value = '';
+                        return;
+                    }
+                    
+                    const instructions = [];
+                    const processValue = (i) => {
+                        const inst_val = (i % 1 === 0) ? i.toString() : i.toFixed(3).replace(/\.?0+$/, '');
+                        const xml_val = i.toFixed(3);
+                        instructions.push(template.replace('{}', inst_val));
+                        entValuesForXml.push(xml_val);
+                    };
+
+                    if (breakpoint !== null && breakpoint > start && breakpoint < end) {
+                        let step1 = (step1_input !== null) ? step1_input : 1.0;
+                        if (step1 <= 0) step1 = 1.0;
+                        for (let i = start; i < breakpoint; i += step1) {
+                            processValue(i);
+                        }
+                        let step2 = (step2_input !== null) ? step2_input : 1.0;
+                        if (step2 <= 0) step2 = 1.0;
+                        for (let i = breakpoint; i <= end + 1e-9; i += step2) {
+                            processValue(i);
+                        }
+                    } else {
+                        let step1 = (step1_input !== null) ? step1_input : 1.0;
+                        if (step1 <= 0) step1 = 1.0;
+                        for (let i = start; i <= end + 1e-9; i += step1) {
+                            processValue(i);
+                        }
+                    }
+                    codeToProcess = instructions.join('\n');
+
                 } else {
-                    // Single step logic
-                    let step1 = (step1_input !== null) ? step1_input : 1.0;
-                    if (step1 <= 0) step1 = 1.0; // Prevent infinite loops
-                    for (let i = start; i <= end + 1e-9; i += step1) {
-                        await processValue(i);
-                    }
+                    // --- MANUAL INPUT MODE ---
+                    codeToProcess = codeTemplate;
                 }
 
-                let entXml = `<string-array name="lib_${xmlName}_ent">`;
-                entXml += `\n    <item>Default</item>`;
-                entValues.forEach(v => { entXml += `\n    <item>${v}</item>`; });
-                entXml += '\n</string-array>';
+                // 2. Send ONE request to the server.
+                const data = await singleConvert(codeToProcess, arch, mode, action);
 
-                let valXml = `<string-array name="lib_${xmlName}_val">`;
-                valXml += `\n    <item>0</item>`;
-                valValues.forEach(v => { valXml += `\n    <item>${v}</item>`; });
-                valXml += '\n</string-array>'
+                // 3. Process the single, authoritative response.
+                if (data && data.results) { // Assemble action
+                    const finalHex = [];
+                    const entValues = [];
+                    const valValues = [];
+                    const numberRegex = /[#\s](-?[\d\.]+)/;
 
-                outputArea.value = rawHexOutput.join('\n');
-                xmlArea.value = entXml + '\n\n' + valXml;
+                    data.results.forEach((res, index) => {
+                        if (res.hex) { // Only process successful results
+                            finalHex.push(res.hex);
+                            valValues.push(res.hex);
+                            
+                            if (expand) {
+                                // In expand mode, we use the pre-calculated float values
+                                entValues.push(entValuesForXml[index]);
+                            } else {
+                                // In manual mode, try to extract the number
+                                const match = res.instruction.match(numberRegex);
+                                entValues.push(match ? match[1] : res.instruction);
+                            }
+                        }
+                    });
+
+                    outputArea.value = finalHex.join('\n');
+                    const xmlName = document.getElementById('xml-name').value || 'DefaultName';
+                    generateXml(xmlArea, xmlName, entValues, valValues);
+
+                } else if (data && data.disassembly) { // Disassemble action
+                    outputArea.value = data.disassembly;
+                    xmlArea.value = ''; // No XML for disassembly
+                } 
+                else {
+                    outputArea.value = data.error || translations[currentLang].error_unknown;
+                    xmlArea.value = '';
+                }
 
             } finally {
                 spinnerOverlay.style.display = 'none';
                 assembleButton.disabled = false;
+            }
+        }
+
+        async function singleConvert(code, arch, mode, action) {
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, arch, mode, action })
+                });
+                const data = await response.json();
+                if(data.error) {
+                     // A bit of a hack to translate backend errors
+                    if (data.error.includes("Failed to assemble")) {
+                        data.error = "Error: Failed to assemble instruction"; 
+                    } else if (data.error.includes("Invalid operand")) {
+                         data.error = "Error: Invalid operand";
+                    }
+                }
+                return data;
+            } catch (error) {
+                return { error: `${translations[currentLang].error_network} ${error.message}` };
             }
         }
 

@@ -1,4 +1,5 @@
 import argparse
+import json
 from keystone import Ks, KS_ARCH_ARM, KS_ARCH_ARM64, KS_MODE_ARM, KS_MODE_THUMB, KsError
 from capstone import Cs, CS_ARCH_ARM, CS_ARCH_ARM64, CS_MODE_ARM, CS_MODE_THUMB, CsError
 import sys
@@ -8,19 +9,21 @@ def assemble(assembly_code, arch, mode):
         ks_arch, ks_mode = (KS_ARCH_ARM, KS_MODE_THUMB if mode == 'thumb' else KS_MODE_ARM) if arch == 'arm' else (KS_ARCH_ARM64, 0)
         ks = Ks(ks_arch, ks_mode)
         
-        all_hex = []
         instructions = [line.strip() for line in assembly_code.strip().split('\n') if line.strip()]
+        results = []
 
         for instruction in instructions:
             try:
                 encoding, count = ks.asm(instruction.encode('utf-8'))
                 if encoding:
-                    all_hex.append(''.join(f'{b:02x}' for b in encoding).upper())
+                    hex_code = ''.join(f'{b:02x}' for b in encoding).upper()
+                    results.append({"instruction": instruction, "hex": hex_code})
+                else:
+                    results.append({"instruction": instruction, "hex": None})
             except KsError:
-                # If assembly of a line fails, skip it and continue to the next.
-                pass
-
-        return '\n'.join(all_hex), None
+                results.append({"instruction": instruction, "hex": None})
+        
+        return {"results": results}, None
 
     except Exception as e:
         return None, f"Assembly Setup Error: {e}"
@@ -46,7 +49,7 @@ def disassemble(hex_code, arch, mode):
             except ValueError:
                 all_asm.append(f"Invalid HEX value: '{line}'")
 
-        return '\n'.join(all_asm), None
+        return {"disassembly": '\n'.join(all_asm)}, None
 
     except CsError as e:
         return None, f"Disassembly Error: {e}"
@@ -65,10 +68,10 @@ def main():
         result, error = disassemble(args.code, args.arch, args.mode)
     
     if error:
-        print(f"Error: {error}", file=sys.stderr)
+        print(json.dumps({'error': error}), file=sys.stderr)
         sys.exit(1)
         
-    print(result)
+    print(json.dumps(result))
 
 if __name__ == "__main__":
     main()
