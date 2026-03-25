@@ -7,19 +7,29 @@ def assemble(assembly_code, arch, mode):
     try:
         ks_arch, ks_mode = (KS_ARCH_ARM, KS_MODE_THUMB if mode == 'thumb' else KS_MODE_ARM) if arch == 'arm' else (KS_ARCH_ARM64, 0)
         ks = Ks(ks_arch, ks_mode)
-        encoding, count = ks.asm(assembly_code.encode('utf-8'))
-        if encoding:
-            return ''.join(f'{b:02x}' for b in encoding).upper(), None
-        return None, f"Failed to assemble '{assembly_code}'"
-    except KsError as e:
-        return None, f"Assembly Error: {e}"
+        
+        all_hex = []
+        instructions = [line.strip() for line in assembly_code.strip().split('\n') if line.strip()]
+
+        for instruction in instructions:
+            try:
+                encoding, count = ks.asm(instruction.encode('utf-8'))
+                if encoding:
+                    all_hex.append(''.join(f'{b:02x}' for b in encoding).upper())
+            except KsError:
+                # If assembly of a line fails, skip it and continue to the next.
+                pass
+
+        return '\n'.join(all_hex), None
+
+    except Exception as e:
+        return None, f"Assembly Setup Error: {e}"
 
 def disassemble(hex_code, arch, mode):
     try:
         cs_arch, cs_mode = (CS_ARCH_ARM, CS_MODE_THUMB if mode == 'thumb' else CS_MODE_ARM) if arch == 'arm' else (CS_ARCH_ARM64, CS_MODE_ARM)
         cs = Cs(cs_arch, cs_mode)
         
-        # Handle multi-line hex input
         all_asm = []
         hex_lines = hex_code.strip().split()
 
@@ -40,7 +50,6 @@ def disassemble(hex_code, arch, mode):
 
     except CsError as e:
         return None, f"Disassembly Error: {e}"
-
 
 def main():
     parser = argparse.ArgumentParser()
